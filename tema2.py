@@ -1,13 +1,13 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import scipy.stats as stats
 import seaborn as sns
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
-from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split, KFold, cross_val_score
+from sklearn.linear_model import LinearRegression, RidgeCV
+from sklearn.model_selection import GridSearchCV
 from sklearn.tree import DecisionTreeRegressor
-from typing import Any, Dict, List
+from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, AdaBoostRegressor, GradientBoostingRegressor
+
 
 
 def read_data(path):
@@ -41,12 +41,16 @@ def replace_nan_with_random_da_nu_values(df, column):
 
 def transform_data(df):
 
-    # b. Descoperirea și corectarea erorilor care au apărut din procedura de colectare
+    # Descoperirea și corectarea erorilor care au apărut din procedura de colectare
+
+    # Afisez diferite informatii despre date pentru a descoperii anomalii, pe care le corectez ulterior
     print("\nAn fabricatie min: ", df["Anul fabricației"].min())
     print("An fabricatie max: ", df["Anul fabricației"].max())
 
     print("\nPret min: ", df["pret"].min())
     print("Pret max: ", df["pret"].max())
+
+    df = df[(df['pret'] > 2000) & (df['pret'] < 300000)]
 
     print("\nkm min: ", df["Km"].min())
     print("km max: ", df["Km"].max())
@@ -54,11 +58,15 @@ def transform_data(df):
     print("\nPutere min: ", df["Putere"].min())
     print("Putere max: ", df["Putere"].max())
 
+    df = df[(df['Putere'] > 40) & (df['Putere'] < 700)]
+
+
     print("\nCapacitate cilindrica min: ", df["Capacitate cilindrica"].min())
     print("Capacitate cilindrica max: ", df["Capacitate cilindrica"].max())
 
     print("Are VIN (Serie sasiu): ", df["Are VIN (Serie sasiu)"].unique())
 
+    # Afisez valorile unice pentru a afla daca tipul de date sau valorile sunt consistente
     print("Putere: ", df["Putere"].unique())
     print("Capacitate cilindrica: ", df["Capacitate cilindrica"].unique())
     print("Transmisie: ", df["Transmisie"].unique())
@@ -81,10 +89,12 @@ def transform_data(df):
     print("Performanta: ", df["Performanta"].unique())
     print("Inmatriculat: ", df["Inmatriculat"].unique())
 
-
+    # In functie de numarul de valori nule pe o coloana, voi elimina toata coloana sau 
+    # o voi completa cu date 
     print("\nNumarul de valori nule per coloana:")
     print(df.isna().sum())
 
+    # In functie de feature, inlocuiesc valorile NaN cu valori medii sau valori random culese de pe aceeasi coloana
     df["Are VIN (Serie sasiu)"] = df["Are VIN (Serie sasiu)"].apply(replace_nan_with, args=("Nu",))
     replace_nan_with_random(df, "Versiune")
     df["Km"].fillna(df["Km"].mean(), inplace=True)
@@ -114,33 +124,8 @@ def transform_data(df):
     replace_nan_with_random(df, "Performanta")
     replace_nan_with_random_da_nu_values(df, "Inmatriculat")
 
-    # km: media
-    # putere: medie + eliminare outliers 
-    # Capacitate cilindrica: medie + eliminare utliers
-    # Transmisise: inlocuire NaN cu ceva random din valorile existente in coloana
-    # Consum Extraurban: medie 
-    # Cutie de viteze: inlcouire nan cu random
-    # Consum urban: medie
-    # Emisii CO2: medie
-    # Numar de portiere: 5 sau random
-    # Numar de locuri: 5 sau random
-    # se emite factura: Nu
-    # Eligibil pentru finantare: Nu
-    # Primul proprietar: Nu
-    # Carte de service: Nu
-    # Audio si tehnologie: random
-    # Confort si echipamente optionale: random
-    # Electronice si sisteme de asistenta: random
-    # Siguranta: random
-    # ?Generatie: random
-    # Norma de poluare: random
-    # Optiuni culoare: random
-    # Tara de origine: random
-    # Data primei inmatriculari: random
-    # Performanta: random
-    # Inmatriculat: random Da / Nu
 
-    # este mai logic ca aceaste coloane sa fie de tipul int
+    # este mai logic ca aceste coloane sa fie de tipul int
     df['Numar locuri'] = df['Numar locuri'].astype(int)
     df['pret'] = df['pret'].astype(int)
     df['Km'] = df['Km'].astype(int)
@@ -148,7 +133,7 @@ def transform_data(df):
     df['Capacitate cilindrica'] = df['Capacitate cilindrica'].astype(int)
 
 
-    # c. Adăugarea sau eliminarea de coloane (acolo unde este cazul, de exemplu prin transformarea celor existente)
+    # Adăugarea sau eliminarea de coloane (acolo unde este cazul, de exemplu prin transformarea celor existente)
     # elimin coloanele cu un numar foarte mic de intrari sau nerelevante pentru analiza noastra (au peste 16000 de intrari de 
     # tip NaN dintr-un total de 19526 intrari)
     
@@ -174,94 +159,15 @@ def transform_data(df):
     df.drop("Valoare reziduala", axis=1, inplace=True)
     df.drop("Consum Mixt", axis=1, inplace=True)
 
-
-
+    # Fac o verificare finala pentru a ma asigura ca datele sunt corectate dupa cum ma astept
     print("\nAfter: ")
     print(df.shape)
-    print(df.dtypes)
     print(df.dtypes.value_counts())
 
     print("\nNumarul de valori nule per coloana:")
     print(df.isna().sum())
-
-    # # Selectați caracteristicile categorice pentru a le codifica one-hot
-    # categorical_features = df.select_dtypes(include=['object']).columns
-    
-    # # Aplicați codificarea one-hot pentru fiecare caracteristică categorică
-    # df_encoded = pd.get_dummies(df[categorical_features], columns=categorical_features)
-    
-    # # Concatenați caracteristicile numerice inițiale cu caracteristicile categorice transformate
-    # df_final = pd.concat([df.drop(columns=categorical_features), df_encoded], axis=1)
-
-    # object_columns = df.select_dtypes(include=['object']).columns
-    # for col in object_columns:
-    #     # Obțineți un dicționar care mapează fiecare valoare unică la un număr
-    #     unique_values = df[col].unique()
-    #     value_map = {value: index for index, value in enumerate(unique_values)}
-    #     # Înlocuiți valorile cu cele mapate la forme numerice
-    #     df[col] = df[col].replace(value_map)
     
     return df
-
-
-def df_to_single_col(df: pd.DataFrame, column_name: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-  features = df[[column_name]]
-  target = df['pret']
-  
-  return features, target
-
-
-def leq_range_buckets(df: pd.DataFrame, column: str, bucket_ranges: List[Any]) -> Dict[Any, pd.DataFrame]:
-    buckets = {}
-
-    # filter dataset rows
-    for i, bucket_range in enumerate(bucket_ranges):
-        if i == 0:
-          buckets[f"<{bucket_range}"] = df[df[column] <= bucket_range]
-        else:
-          buckets[f"<{bucket_range}"] = df[(df[column] > bucket_ranges[i-1]) & (df[column] <= bucket_range)]
-    
-    # sum up the length of all the buckets
-    total = sum([len(buckets[bucket]) for bucket in buckets])
-    if total != len(df):
-        # create another bucket to store remaining examples
-        buckets[f">{bucket_ranges[-1]}"] = df[df[column] > bucket_ranges[-1]]
-
-    buckets["total"] = df
-    return buckets
-
-
-def make_kfolds(buckets: dict[str, pd.DataFrame], n_splits: int = 5, shuffle: bool = False) -> Dict[str, KFold]:
-  kfolds = {}
-  for bucket_name, bucket_df in buckets.items():
-    kf = KFold(n_splits=n_splits, shuffle=shuffle)
-    kfolds[bucket_name] = (kf.split(bucket_df))
-  return kfolds
-
-
-def get_train_test_folds(buckets: dict[str, pd.DataFrame], kfolds: dict[str, KFold], n_folds: int) -> tuple[list[pd.DataFrame], list[pd.DataFrame]]:
-  train_folds: Dict[str, List[pd.DataFrame]] = {}
-  test_folds: Dict[str, List[pd.DataFrame]] = {}
-  
-  bucket_names = set(buckets.keys())
-  bucket_names.remove("total")
-  for bucket_name in bucket_names:
-    train_folds[bucket_name]: List[pd.DataFrame] = []
-    test_folds[bucket_name]: List[pd.DataFrame] = []
-    for idx, (train_idx, val_idx) in enumerate(kfolds[bucket_name]):
-      train_indices = buckets[bucket_name].iloc[train_idx]
-      test_indices = buckets[bucket_name].iloc[val_idx]
-      train_folds[bucket_name].append(train_indices)
-      test_folds[bucket_name].append(test_indices)
-  
-  # from each bucket name, concatenate the same index from each fold
-  train_folds_concat: List[pd.DataFrame] = []
-  test_folds_concat: List[pd.DataFrame] = []
-  for idx in range(n_folds):
-    train_folds_concat.append(pd.concat([train_folds[bucket_name][idx] for bucket_name in bucket_names]))
-    test_folds_concat.append(pd.concat([test_folds[bucket_name][idx] for bucket_name in bucket_names]))
-  
-  return train_folds_concat, test_folds_concat
 
 
 def plot_pearson_spearman(df):
@@ -285,105 +191,151 @@ def plot_pearson_spearman(df):
     plt.show()
 
 
+def crossval_rmse(model, n_folds, df, x, y):
+    # creez n fold-uri de cross-validare in mod aleator
+    kf = KFold(n_folds, shuffle=True).get_n_splits(df.values)
+
+    # evaluez eroarea medie patratica sub radical pentru cele n folduri, folosind datele de input (antrenare sau testare)
+    rmse = np.sqrt(-1 * cross_val_score(model, x, y, scoring="neg_mean_squared_error", cv=kf))
+    
+    return rmse
+
+
+def run_regression(model, x_train, y_train, x_test, y_test, df, model_name):
+    print("\n********************************************************")
+    print("Training and testing of: {}".format(model_name))
+
+    # antrenez modelul pe datele de antrenare
+    model.fit(x_train, y_train)
+
+    # calculez predictiile pentru datele de antrenare si testare
+    x_train_pred = model.predict(x_train)
+    x_test_pred = model.predict(x_test)
+    
+    # Definesc numarul de fold-uri pe care le face "crossval_rmse". Aceasta functie creeaza n fold-uri 
+    # de cross validare in mod aleatoriu, returnand eroarea medie patratica sub radical pentru cele n fold-uri
+    n_folds = 3
+    print('\nTrain RMSE: {}'.format(crossval_rmse(model, n_folds, df, x_train, y_train).mean()))
+    print('Test RMSE: {}'.format(crossval_rmse(model, n_folds, df, x_test, y_test).mean()))
+
+    # trasez graficul predictiei modelului
+    plt.scatter(x_train_pred, y_train, c = "blue",  label = "Training data")
+    plt.scatter(x_test_pred, y_test, c = "black",  label = "Validation data")
+    plt.title(model_name)
+    plt.xlabel("Predicted values")
+    plt.ylabel("Real values")
+    plt.legend(loc = "upper left")
+    plt.plot([x_train_pred.min(), x_train_pred.max()], [x_train_pred.min(), x_train_pred.max()], c = "red")
+    plt.show()
+
+    # Evaluez score-ul modelului
+    score = model.score(x_test, y_test)
+    print("\nScore of {}: {}\n".format(model_name, score))
+
+    return x_test_pred, score
+
+
+def get_best_hyperparams(model, initial_hyperparams, x_train, y_train):
+    # folosesc GridSearch pentru a gasi cei mai buni hiperparametrii
+    grid_search = GridSearchCV(model, initial_hyperparams, cv=3)
+
+    # antrenez modelul
+    grid_search.fit(x_train, y_train)
+
+    # afisez cei mai buni hiperparametri obtinuti
+    print("\nGridSearch - best hyperparams:", grid_search.best_params_)
+
+    # afisez cel mai bun scor obtinut
+    print("GridSearch - best score:", grid_search.best_score_)
+    
+    return grid_search.best_estimator_
+
+
+def save_predictions_to_csv(predictions, ids, filename):
+    # creez un dataframe care sa respecte formatul id, value, folosind datele de input
+    solution_df = pd.DataFrame({'id': ids, 'value': predictions})
+
+    # salvez dataframe-ul in fisierul primit ca input
+    solution_df.to_csv(filename, index=False)
+
+
 def main():
 
-    # 1. Citirea și încărcarea datelor din fișierul la dispoziție
+    # Citirea și încărcarea datelor din fișierul la dispoziție
     df = read_data('auto_train.csv')
     
-    # 2. Transformarea datelor
+    # Transformarea datelor
     df = transform_data(df)
-    df = df.head(18000)
-
-    # 3. Stocarea datelor
-    # x = df.drop(columns=['pret'])
-    train_buckets = leq_range_buckets(df, "pret", [15000, 50_000])
-    for bucket in train_buckets:
-        print(
-        f"`Bucket: {bucket}` contains {len(train_buckets[bucket])} samples."
-        f" Percentage of total: {len(train_buckets[bucket]) / len(df):.2%}"
-        )
-    
-
-    # kfolds = make_kfolds(train_buckets)
-    n_folds = 3
-    kfolds = make_kfolds(train_buckets, n_splits=n_folds, shuffle=False)
-    # print(f"Number of buckets: {len(kfolds)}")
-    # for bucket_name, bucket_kfolds in kfolds.items():
-    #     print(f"Bucket: {bucket_name}")
-    #     for idx, (train_idx, val_idx) in enumerate(bucket_kfolds):
-    #         print(f"Fold: {idx}")
-    #         print(f"Training indices: {train_idx}")
-    #         print(f"Validation indices: {val_idx}")
-    #         print()
 
 
-    train_dfs, test_dfs = get_train_test_folds(train_buckets, kfolds, n_folds)
-    print(f"Number of folds: {len(train_dfs)}")
-    for idx, (train_df, test_df) in enumerate(zip(train_dfs, test_dfs)):
-        print(f"Fold: {idx}")
-        print(f"Training shape: {train_df.shape}")
-        print(f"Testing shape: {test_df.shape}")
-        print()
+    # Stocarea datelor
 
-
-    # x = df[['Anul fabricației', 'Km', 'Putere', 'Capacitate cilindrica', 'Consum Extraurban', 'Consum Urban']]
-    # y = df['pret']
-    # x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
-
-
+    # plotez graficele Pearson si Spearman pentru a vedea gradul de corelatie dintre pret si alte categorii
     # plot_pearson_spearman(df)
 
-    for idx, (train_df, test_df) in enumerate(zip(train_dfs, test_dfs)):
-        print(f"Fold: {idx}")
+    # Pastrez acele categorii cu grad ridicat de corelatie
+    # Pentru y am obtinut rezultate mai bune aplicand o transformare logaritmica asupra pretului
+    x = df[['Anul fabricației', 'Km', 'Putere', 'Capacitate cilindrica', 'Consum Extraurban', 'Consum Urban']]
+    y = np.log1p(df['pret'])
 
-        fig, ax = plt.subplots(1, 3, figsize=(10, 3), dpi=150)
-        for col_idx, demo_column in enumerate(("Putere", "Anul fabricației", "Capacitate cilindrica")):
-            x_train, y_train = df_to_single_col(train_df, demo_column)
-            x_test, y_test = df_to_single_col(test_df, demo_column)
-
-            model = LinearRegression()
-            # model = DecisionTreeRegressor()
-
-            model.fit(x_train, y_train)
-
-            train_score = model.score(x_train, y_train)
-            test_score = model.score(x_test, y_test)
-
-            print("Training R^2 score:", train_score)
-            print("Test R^2 score:", test_score)
-
-            y_train_pred = model.predict(x_train)
-            y_test_pred = model.predict(x_test)
-
-            # Create a range of x values to plot the predicted function
-            x_range = np.linspace(x_train.min(), x_train.max(), 100).reshape(-1, 1)
-
-            # Predict the y values for the range of x values
-            y_range_pred = model.predict(x_range)
+    # impart setul de date: 80% antrenare si 20% testare
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
 
 
-            # Plot the predicted function as a line
-            ax[col_idx].plot(x_range, y_range_pred, color='red', lw=3, label='Predicted function')
-            ax[col_idx].scatter(x_test, y_test_pred, label='Test set prices')
-            ax[col_idx].scatter(x_train, y_train, label='Training set prices', alpha=0.35, color="orange")
-            ax[col_idx].set_xlabel(demo_column)
-            ax[col_idx].set_ylabel('Pret')
-            ax[col_idx].set_title(f"Linear Regression on {demo_column}")
-            ax[col_idx].grid()
-            ax[col_idx].legend()
-        
-        plt.show()
-        break # we notice the results are not so great...
+    # Antrenarea si evaluarea modelelor de regresie
+    ridge_initial_hyperparams = {'alphas': [0.1, 1.0, 30.0]}
+    decision_tree_initial_hyperparams = {'max_depth': [None, 10, 20]}
+    random_forest_initial_hyperparams = {'n_estimators': [50, 100, 250]}
+    extra_trees_initial_hyperparams = {'n_estimators': [50, 100, 300]}
+    ada_boost_initial_hyperparams = {'n_estimators': [50, 100, 200]}
+    gradient_boosting_initial_hyperparams = {'n_estimators': [50, 100, 2500]}
 
-    # model = LinearRegression()
+    linear_model = LinearRegression()
+    solution_lm, score_lm = run_regression(linear_model, x_train, y_train, x_test, y_test, df, "Linear regression")
 
-    # # Antrenarea modelului
-    # model = LinearRegression()
-    # model.fit(x_train, y_train)
+    ridge_model = RidgeCV()
+    best_ridge_model = get_best_hyperparams(ridge_model, ridge_initial_hyperparams, x_train, y_train)
+    solution_rm, score_rm = run_regression(best_ridge_model, x_train, y_train, x_test, y_test, df, "Ridge regression")
 
-    # # Evaluarea modelului
-    # score = model.score(x_test, y_test)
-    # print("Scorul modelului:", score)
+    decision_tree_model = DecisionTreeRegressor()
+    best_decision_tree_model = get_best_hyperparams(decision_tree_model, decision_tree_initial_hyperparams, x_train, y_train)
+    solution_dt, score_dt = run_regression(best_decision_tree_model, x_train, y_train, x_test, y_test, df, "DecisionTree regression")
+
+    random_forest_model = RandomForestRegressor()
+    best_random_forest_model = get_best_hyperparams(random_forest_model, random_forest_initial_hyperparams, x_train, y_train)
+    solution_rf, score_rf = run_regression(best_random_forest_model, x_train, y_train, x_test, y_test, df, "RandomForest regression")
+
+    extra_trees_model = ExtraTreesRegressor()
+    best_extra_trees_model = get_best_hyperparams(extra_trees_model, extra_trees_initial_hyperparams, x_train, y_train)
+    solution_et, score_et = run_regression(best_extra_trees_model, x_train, y_train, x_test, y_test, df, "ExtraTrees regression")
+
+    ada_boost_model = AdaBoostRegressor()
+    best_ada_boost_model = get_best_hyperparams(ada_boost_model, ada_boost_initial_hyperparams, x_train, y_train)
+    solution_ab, score_ab = run_regression(best_ada_boost_model, x_train, y_train, x_test, y_test, df, "AdaBoost regression")
+
+    gradient_boosting_model = GradientBoostingRegressor()
+    best_gradient_boosting_model = get_best_hyperparams(gradient_boosting_model, gradient_boosting_initial_hyperparams, x_train, y_train)
+    solution_gb, score_gb = run_regression(best_gradient_boosting_model, x_train, y_train, x_test, y_test, df, "GradientBoosting regression")
+
+    # salvez doar solutia cu score-ul cel mai bun
+    best_score = max(score_lm, score_rm, score_dt, score_rf, score_et, score_ab, score_gb)
+
+    if best_score == score_lm:
+        best_solution = solution_lm
+    elif best_score == score_rm:
+        best_solution = solution_rm
+    elif best_score == score_dt:
+        best_solution = solution_dt
+    elif best_score == score_rf:
+        best_solution = solution_rf
+    elif best_score == score_et:
+        best_solution = solution_et
+    elif best_score == score_ab:
+        best_solution = solution_ab
+    else:
+        best_solution = solution_gb
+
+    save_predictions_to_csv(np.exp(best_solution), df.loc[x_test.index, 'id'], 'solution.csv')
 
 
     
