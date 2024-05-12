@@ -44,6 +44,10 @@ def transform_data(df):
     # Descoperirea și corectarea erorilor care au apărut din procedura de colectare
 
     # Afisez diferite informatii despre date pentru a descoperii anomalii, pe care le corectez ulterior
+    print("\nBefore: ")
+    print(df.shape)
+    print(df.dtypes.value_counts())
+
     print("\nAn fabricatie min: ", df["Anul fabricației"].min())
     print("An fabricatie max: ", df["Anul fabricației"].max())
 
@@ -271,11 +275,11 @@ def main():
     # Stocarea datelor
 
     # plotez graficele Pearson si Spearman pentru a vedea gradul de corelatie dintre pret si alte categorii
-    # plot_pearson_spearman(df)
+    plot_pearson_spearman(df)
 
     # Pastrez acele categorii cu grad ridicat de corelatie
     # Pentru y am obtinut rezultate mai bune aplicand o transformare logaritmica asupra pretului
-    x = df[['Anul fabricației', 'Km', 'Putere', 'Capacitate cilindrica', 'Consum Extraurban', 'Consum Urban']]
+    x = df[['Anul fabricației', 'Putere', 'Capacitate cilindrica']]
     y = np.log1p(df['pret'])
 
     # impart setul de date: 80% antrenare si 20% testare
@@ -320,20 +324,29 @@ def main():
     # salvez doar solutia cu score-ul cel mai bun
     best_score = max(score_lm, score_rm, score_dt, score_rf, score_et, score_ab, score_gb)
 
+    print("\n********************************************************")
     if best_score == score_lm:
         best_solution = solution_lm
+        print("Best score was obtained by LinearRegression: {}".format(score_lm))
     elif best_score == score_rm:
         best_solution = solution_rm
+        print("Best score was obtained by RidgeRegression: {}".format(score_rm))
     elif best_score == score_dt:
         best_solution = solution_dt
+        print("Best score was obtained by DecisionTreeRegression: {}".format(score_dt))
     elif best_score == score_rf:
         best_solution = solution_rf
+        print("Best score was obtained by RandomForestRegression: {}".format(score_rf))
     elif best_score == score_et:
         best_solution = solution_et
+        print("Best score was obtained by ExtraTreesRegression: {}".format(score_et))
     elif best_score == score_ab:
         best_solution = solution_ab
+        print("Best score was obtained by AdaBoostRegression: {}".format(score_ab))
     else:
         best_solution = solution_gb
+        print("Best score was obtained by GradientBoostingRegression: {}".format(score_gb))
+
 
     save_predictions_to_csv(np.exp(best_solution), df.loc[x_test.index, 'id'], 'solution.csv')
 
